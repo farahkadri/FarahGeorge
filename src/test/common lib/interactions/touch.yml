@@ -1,0 +1,135 @@
+name: Double Tap
+short_description: Double tap on the touch screen using finger motion events
+
+example_usage:
+  java:
+    |
+    TouchActions action = new TouchActions(driver);
+    action.doubleTap(element);
+    action.perform();
+
+
+---
+name: Flick
+short_description: Flick on the touch screen using finger motion events
+
+example_usage:
+  java:
+    |
+    TouchActions action = new TouchActions(driver);
+    action.flick(element, 1, 10, 10);
+    action.perform();
+
+---
+name: Long Tap
+short_description: Long press on the touch screen using finger motion events
+
+example_usage:
+  java:
+    |
+    TouchActions action = new TouchActions(driver);
+    action.longPress(element);
+    action.perform();
+
+---
+name: Move To
+short_description: Finger move on the screen
+description:
+  >
+  As of Appium 1.8.0 all move actions take coordinates that are absolute.
+example_usage:
+  java:
+    |
+    TouchActions action = new TouchActions(driver);
+    action.down(10, 10);
+    action.moveTo(50, 50);
+    action.perform();
+
+---
+name: Multi Touch Perform
+short_description: Perform a multi touch action sequence
+
+example_usage:
+  java:
+    |
+    TouchActions actionOne = new TouchAction();
+    actionOne.press(10, 10);
+    actionOne.moveTo(10, 100);
+    actionOne.release();
+    TouchActions actionTwo = new TouchAction();
+    actionTwo.press(20, 20);
+    actionTwo.moveTo(20, 200);
+    actionTwo.release();
+    MultiTouchAction action = new MultiTouchAction();
+    action.add(actionOne);
+    action.add(actionTwo);
+    action.perform();
+
+---
+name: Scroll
+short_description: Scroll on the touch screen using finger based motion events
+
+example_usage:
+  java:
+    |
+    TouchActions action = new TouchActions(driver);
+    action.scroll(element, 10, 100);
+    action.perform();
+
+---
+name: Tap
+short_description: Single tap on the touch enabled device
+
+example_usage:
+  java:
+    |
+    TouchActions action = new TouchActions(driver);
+    action.singleTap(element);
+    action.perform();
+
+---
+name: Touch Down
+short_description: Finger down on the screen
+
+example_usage:
+  java:
+    |
+    TouchActions action = new TouchActions(driver);
+    action.down(10, 10);
+    action.move(50, 50);
+    action.perform();
+
+---
+name: Touch Perform
+short_description: Perform a touch action sequence
+
+description:
+  |
+  This functionality is only available from within a native context
+
+  'Touch Perform' works similarly to the other singular touch interactions, except that this allows you to chain together more than one touch action as one
+  command. This is useful because Appium commands are sent over the network and there's latency between commands. This latency can make certain touch
+  interactions impossible because some interactions need to be performed in one sequence. Vertical, for example, requires pressing down, moving to a different
+  y coordinate, and then releasing. For it to work, there can't be a delay between the interactions.
+
+example_usage:
+  java:
+    |
+    TouchAction action = new TouchAction(driver);
+    action.press(10, 10);
+    action.moveTo(10, 100);
+    action.release();
+    action.perform();
+
+---
+name: Touch Up
+short_description: Finger up on the screen
+
+example_usage:
+  java:
+    |
+    TouchActions action = new TouchActions(driver);
+    action.down(10, 10);
+    action.up(20, 20);
+    action.perform();
+

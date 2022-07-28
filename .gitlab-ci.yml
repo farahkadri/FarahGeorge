@@ -1,0 +1,157 @@
+image: docker
+variables:
+  GIT_DEPTH: 1 # This allows shallow cloning of the repository which can significantly speed up cloning for repositories with a large number of commits or old, large binaries
+  JAVA_HOME: "/Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home"
+  ANDROID_HOME: "/Users/iosbuild/Library/Android/sdk"
+  A9Y_URL:
+  GRADLE_USER_HOME: "cache/.gradle"
+
+cache:
+  key: "$CI_COMMIT_REF_NAME" #per branch caching
+  paths:
+    - $GRADLE_USER_HOME/caches/                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  -
+    - $GRADLE_USER_HOME/wrapper/
+
+# This file is a template, and might need editing before it works on your project.
+# This is a sample GitLab CI/CD configuration file that should run without any modifications.
+# It demonstrates a basic 5 stage CI/CD pipeline. Instead of real tests or scripts,
+# it uses echo commands to simulate the pipeline execution.
+#
+# A pipeline is composed of independent jobs that run scripts, grouped into stages.
+# Stages run in sequential order, but jobs within stages run in parallel.
+#
+# For more information, see: https://docs.gitlab.com/ee/ci/yaml/README.html#stages
+
+stages:
+  - check
+  - build
+  - prepare
+  - test
+  - publish
+
+
+# ***********************************************
+# Check stage
+# ***********************************************
+
+# Run Checkstyle to ensure code quality
+checkstyle:
+  stage: check
+  script:
+    - mvn site --no-transfer-progress
+  tags:
+    - iosbuild07
+  artifacts:
+    expire_in: 1 day
+    name: "Checkstyle_${CI_JOB_ID}_${CI_JOB_NAME}"
+    when: always
+    paths:
+      - target/site/
+
+# ***********************************************
+# Build stage
+# ***********************************************
+
+build:
+  stage: build
+  script:
+    - mvn clean install -DskipTests --no-transfer-progress
+  tags:
+    - iosbuild07
+
+# ***********************************************
+# Prepare stage
+# ***********************************************
+
+.artifactoryDowloadTemplate:  # Hidden key that defines an anchor named 'testTemplate'
+  stage: prepare
+  script:
+    - jfrog config add --overwrite=true --interactive=false --artifactory-url=$A9Y_URL --user=deployer --password=$A9Y_DEPLOYER_KEY
+    - jfrog rt dl --flat --spec $JFROG_SPEC_FILE_PATH
+  artifacts:
+    name: "${CI_JOB_ID}_${CI_JOB_NAME}"
+    paths:
+      - src/test/resources/apps
+    expire_in: 1 week
+
+download-from-Android-artifactory: # This job runs in the Android Artifacts stage.
+  extends: .artifactoryDowloadTemplate # Use template
+  variables:
+    JFROG_SPEC_FILE_PATH:
+
+download-from-iOS-artifactory: # This job runs in the iOS Artifacts stage. Try manual
+  extends: .artifactoryDowloadTemplate # Use template
+  # Download test iOS artifacts
+  variables:
+    JFROG_SPEC_FILE_PATH:
+
+
+# ***********************************************
+# Testing stage
+# ***********************************************
+.test:
+  stage: test
+  script:
+    - mvn verify --no-transfer-progress -DconfigFileName=$CONFIG_FILE_NAME
+  tags:
+    - iosbuild07
+  timeout: 16h
+  when: on_success
+  allow_failure: true # TODO: Remove this when tc without onboarding are fixed
+  artifacts:
+    when: always
+    paths:
+      - target/surefire-reports/TEST-*.xml
+      - Reports/
+      - target/cucumber/*.json
+      - target/cucumber/*.xml
+    reports:
+      junit:
+        - target/surefire-reports/TEST-*.xml
+        - target/cucumber/*.json
+        - target/cucumber/*.xml
+    expire_in: 1 week
+
+
+unit-test-Android-job: # This job runs in the test stage. Starting the pipeline
+  extends: .test
+  when: manual # TODO: remove when all TC are successful
+  after_script: #After the TC execution, This will uninstall UiAutomator2 server apk from test device and tries to shut it down
+    - ~/Library/Android/sdk/platform-tools/adb uninstall io.appium.uiautomator2.server
+    - ~/Library/Android/sdk/platform-tools/adb uninstall io.appium.uiautomator2.server.test
+    - ~/Library/Android/sdk/platform-tools/adb -e emu kill
+  dependencies:
+    - download-from-Android-artifactory
+  variables:
+    CONFIG_FILE_NAME: "config_android.properties"
+
+unit-test-iOS-job: # This job runs in the test stage.
+  extends: .test
+  when: manual # TODO: remove when all TC are successful
+  dependencies:
+    - download-from-iOS-artifactory
+  variables:
+    CONFIG_FILE_NAME: "config_ios.properties"
+
+# ***********************************************
+# Publish stage
+# ***********************************************
+jira-publisher:
+  stage: publish
+  when: manual #TODO remove
+  before_script:
+    - apt-get update && apt-get install -y zip
+    - rm -f jira_test_results.zip
+  script:
+    - zip jira_test_results.zip target/cucumber/*
+    - curl --basic --user $JIRA_PUBLISHER_USER_NAME:$JIRA_PUBLISHER_PASSWORD -F 'file=@"jira_test_results.zip"' https://jira.risedev.at/rest/atm/1.0/automation/execution/cucumber/SID?autoCreateTestCases=false
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - jira_test_results.zip
+#  after_script:
+#    - rm jira_test_results.zip
+  # TODO only:
+  #  - master
+  #  - develop
